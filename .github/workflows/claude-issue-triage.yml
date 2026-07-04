@@ -1,0 +1,54 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        id: claude-triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*)"'
+          prompt: |
+            You are triaging GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+
+            1. Run `gh label list` to see the labels available in this repository.
+            2. Run `gh issue view ${{ github.event.issue.number }} --json title,body,labels,comments` to read the
+               current issue title, body, existing labels, and comments.
+            3. Based on the title and body, decide which of the existing labels apply (e.g. bug, enhancement,
+               documentation, question, duplicate, invalid, good first issue, help wanted). Only use labels that
+               already exist in the repository — do not invent new ones. Apply them with
+               `gh issue edit ${{ github.event.issue.number }} --add-label "<label1>,<label2>"`. Do not remove
+               labels that a human maintainer added and that still look correct.
+            4. Write a short general diagnosis of the problem as a markdown comment. It should help the team
+               write the fix later, so include:
+               - A one-paragraph restatement of the problem/request in your own words.
+               - The likely affected area(s) of the codebase (files/modules), found by briefly exploring the repo.
+               - Likely root cause or, for feature requests, the key design questions to resolve.
+               - A short suggested approach or next steps for implementation — do NOT write the actual fix or
+                 open a PR, this is analysis only.
+               Start the comment body with the exact marker line `<!-- claude-issue-triage -->` on its own line
+               so it can be recognized later.
+            5. Check the existing comments from step 2 for one that starts with `<!-- claude-issue-triage -->`.
+               - If found, update it with `gh issue comment ${{ github.event.issue.number }} --edit-last --body-file <file>`
+                 only if the comment you would post was authored by this same bot/workflow; otherwise post a new
+                 comment with `gh issue comment ${{ github.event.issue.number }} --body-file <file>`.
+               - If not found, post a new comment with
+                 `gh issue comment ${{ github.event.issue.number }} --body-file <file>`.
+               Write the comment body to a temp file first and pass it with `--body-file` to avoid shell escaping
+               issues.
