@@ -52,10 +52,53 @@
       </aside>
     </div>
 
+    <div id="start-screen" class="overlay">
+      <div class="overlay-box">
+        <p class="start-subtitle">Mejores puntuaciones</p>
+        <table class="highscore-table">
+          <thead>
+            <tr><th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Combo</th></tr>
+          </thead>
+          <tbody id="start-highscore-body"></tbody>
+        </table>
+        <div class="best-stats">
+          <span class="label">MEJOR COMBO</span>
+          <span class="value" id="start-best-combo">0</span>
+          <span class="label">MÁX. LÍNEAS</span>
+          <span class="value" id="start-best-lines">0</span>
+        </div>
+        <button id="start-btn">Jugar</button>
+        <button id="reset-scores-btn-start" class="secondary-btn">Reset records</button>
+      </div>
+    </div>
+
     <div id="overlay" class="overlay hidden">
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
+
+        <div id="gameover-extras" class="hidden">
+          <div id="name-entry" class="hidden">
+            <p class="name-entry-label">¡Nueva puntuación alta! Ingresa tu nombre:</p>
+            <input id="name-input" type="text" maxlength="10" placeholder="Jugador" autocomplete="off" />
+            <button id="save-name-btn">Guardar</button>
+          </div>
+
+          <table class="highscore-table">
+            <thead>
+              <tr><th>#</th><th>Nombre</th><th>Puntos</th><th>Líneas</th><th>Combo</th></tr>
+            </thead>
+            <tbody id="gameover-highscore-body"></tbody>
+          </table>
+          <div class="best-stats">
+            <span class="label">MEJOR COMBO</span>
+            <span class="value" id="overlay-best-combo">0</span>
+            <span class="label">MÁX. LÍNEAS</span>
+            <span class="value" id="overlay-best-lines">0</span>
+          </div>
+          <button id="reset-scores-btn-overlay" class="secondary-btn">Reset records</button>
+        </div>
+
         <button id="restart-btn">Reiniciar</button>
       </div>
     </div>
