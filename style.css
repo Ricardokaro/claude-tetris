@@ -173,6 +173,22 @@ body {
   letter-spacing: 1px;
 }
 
+.skin-select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.skin-select:focus {
+  outline: 1px solid var(--value-color);
+}
+
 #next-canvas {
   display: block;
   border: 1px solid var(--board-border);

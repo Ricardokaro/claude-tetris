@@ -16,6 +16,60 @@ const COLORS = [
   '#90a4ae', // Nut - metallic gray
 ];
 
+// Visual skins: each entry provides a color palette (parallel to COLORS,
+// index 0 unused) plus optional rendering flags that drawBlock() branches on.
+const SKINS = {
+  retro: {
+    colors: COLORS,
+    boardBackground: null,
+  },
+  neon: {
+    colors: [
+      null,
+      '#00f6ff', // I - electric cyan
+      '#faff00', // O - electric yellow
+      '#ff00ea', // T - magenta
+      '#00ff5e', // S - neon green
+      '#ff0044', // Z - neon red
+      '#00aaff', // J - neon blue
+      '#ff9500', // L - neon orange
+      '#c400ff', // Nut - neon violet
+    ],
+    boardBackground: '#000000',
+    glow: true,
+  },
+  pastel: {
+    colors: [
+      null,
+      '#a8dadc', // I - soft cyan
+      '#ffe8a3', // O - soft yellow
+      '#d8bfd8', // T - thistle purple
+      '#b5e7a0', // S - soft green
+      '#f4a6a6', // Z - soft pink/red
+      '#a9c9e8', // J - soft blue
+      '#f7c99e', // L - soft orange
+      '#c9c9d1', // Nut - soft gray
+    ],
+    boardBackground: null,
+    rounded: true,
+  },
+  pixel: {
+    colors: [
+      null,
+      '#00e5ff',
+      '#ffee00',
+      '#cc33ff',
+      '#33ff66',
+      '#ff3355',
+      '#3388ff',
+      '#ff9933',
+      '#999999',
+    ],
+    boardBackground: null,
+    pattern: true,
+  },
+};
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -42,10 +96,13 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeSwitch = document.getElementById('theme-switch');
+const skinSelect = document.getElementById('skin-select');
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let currentSkin = 'retro';
 
 const THEME_KEY = 'tetris-theme';
+const SKIN_KEY = 'tetris-skin';
 
 function applyTheme(theme) {
   document.body.classList.toggle('light-theme', theme === 'light');
@@ -61,6 +118,28 @@ themeSwitch.addEventListener('change', () => {
   const theme = themeSwitch.checked ? 'light' : 'dark';
   localStorage.setItem(THEME_KEY, theme);
   applyTheme(theme);
+});
+
+function applySkin(skin) {
+  currentSkin = SKINS[skin] ? skin : 'retro';
+  skinSelect.value = currentSkin;
+  // Force an immediate repaint so the change is visible with no reload,
+  // whether the game is running or paused (loop is halted while paused).
+  if (board) {
+    draw();
+    drawNext();
+  }
+}
+
+function initSkin() {
+  const saved = localStorage.getItem(SKIN_KEY);
+  applySkin(SKINS[saved] ? saved : 'retro');
+}
+
+skinSelect.addEventListener('change', () => {
+  const skin = skinSelect.value;
+  localStorage.setItem(SKIN_KEY, skin);
+  applySkin(skin);
 });
 
 function createBoard() {
@@ -177,16 +256,79 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+function roundedRectPath(context, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + w, y, x + w, y + h, radius);
+  context.arcTo(x + w, y + h, x, y + h, radius);
+  context.arcTo(x, y + h, x, y, radius);
+  context.arcTo(x, y, x + w, y, radius);
+  context.closePath();
+}
+
+function drawPixelPattern(context, px, py, s) {
+  const step = Math.max(4, Math.round(s / 5));
+  context.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let yy = 0; yy < s; yy += step * 2) {
+    for (let xx = 0; xx < s; xx += step * 2) {
+      context.fillRect(px + xx, py + yy, Math.min(step, s - xx), Math.min(step, s - yy));
+    }
+  }
+  context.fillStyle = 'rgba(255,255,255,0.10)';
+  for (let yy = step; yy < s; yy += step * 2) {
+    for (let xx = step; xx < s; xx += step * 2) {
+      context.fillRect(px + xx, py + yy, Math.min(step, s - xx), Math.min(step, s - yy));
+    }
+  }
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
+  const skin = SKINS[currentSkin] || SKINS.retro;
+  const color = skin.colors[colorIndex] || COLORS[colorIndex];
+  const px = x * size + 1;
+  const py = y * size + 1;
+  const s = size - 2;
+
+  context.save();
   context.globalAlpha = alpha ?? 1;
+
+  if (skin.glow) {
+    context.shadowBlur = size * 0.5;
+    context.shadowColor = color;
+  }
+
   context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+  if (skin.rounded) {
+    roundedRectPath(context, px, py, s, s, Math.max(3, size * 0.2));
+    context.fill();
+  } else {
+    context.fillRect(px, py, s, s);
+  }
+
+  // Reset shadow before secondary details so highlights/patterns stay crisp
+  // instead of also glowing.
+  context.shadowBlur = 0;
+
   // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
-  context.globalAlpha = 1;
+  if (skin.rounded) {
+    context.save();
+    roundedRectPath(context, px, py, s, s, Math.max(3, size * 0.2));
+    context.clip();
+    context.fillStyle = 'rgba(255,255,255,0.18)';
+    context.fillRect(px, py, s, 4);
+    context.restore();
+  } else {
+    context.fillStyle = 'rgba(255,255,255,0.12)';
+    context.fillRect(px, py, s, 4);
+  }
+
+  if (skin.pattern) {
+    drawPixelPattern(context, px, py, s);
+  }
+
+  context.restore();
 }
 
 function drawGrid() {
@@ -207,7 +349,12 @@ function drawGrid() {
 }
 
 function draw() {
+  const skin = SKINS[currentSkin] || SKINS.retro;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (skin.boardBackground) {
+    ctx.fillStyle = skin.boardBackground;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   drawGrid();
 
   // board
@@ -230,7 +377,12 @@ function draw() {
 
 function drawNext() {
   const NB = 30;
+  const skin = SKINS[currentSkin] || SKINS.retro;
   nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  if (skin.boardBackground) {
+    nextCtx.fillStyle = skin.boardBackground;
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+  }
   const shape = next.shape;
   const offX = Math.floor((4 - shape[0].length) / 2);
   const offY = Math.floor((4 - shape.length) / 2);
@@ -297,6 +449,10 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  // Don't hijack keys while a form control (e.g. the skin selector) has
+  // focus, since Arrow keys / Space / "P" are also meaningful there.
+  const tag = e.target && e.target.tagName;
+  if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return;
   if (e.code === 'KeyP') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -324,4 +480,5 @@ document.addEventListener('keydown', e => {
 restartBtn.addEventListener('click', init);
 
 initTheme();
+initSkin();
 init();
